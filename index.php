@@ -1,0 +1,2179 @@
+<?php
+session_start();
+include("conexion.php");
+
+/* =========================================
+LOGIN
+========================================= */
+
+if(isset($_POST['login'])){
+
+$correo=$_POST['correo'];
+$password=$_POST['password'];
+
+$sql=mysqli_query($conexion,"
+SELECT * FROM usuarios
+WHERE correo='$correo'
+AND password='$password'
+");
+
+if(mysqli_num_rows($sql)>0){
+
+$datos=mysqli_fetch_array($sql);
+
+$_SESSION['usuario']=$datos['nombre'];
+$_SESSION['rol']=$datos['rol'];
+$_SESSION['id']=$datos['id_usuario'];
+
+header("Location:index.php");
+
+}else{
+
+$mensaje="Correo o contraseña incorrectos";
+
+}
+
+}
+
+/* =========================================
+REGISTRO
+========================================= */
+
+if(isset($_POST['registro'])){
+
+$nombre=$_POST['nombre'];
+$apellido=$_POST['apellido'];
+$correo=$_POST['correo'];
+$password=$_POST['password'];
+
+$verificar=mysqli_query($conexion,"
+SELECT * FROM usuarios
+WHERE correo='$correo'
+");
+
+if(mysqli_num_rows($verificar)>0){
+
+$mensaje="El correo ya existe";
+
+}else{
+
+mysqli_query($conexion,"
+INSERT INTO usuarios(
+nombre,
+apellido,
+correo,
+password,
+rol,
+puntos
+)
+VALUES(
+'$nombre',
+'$apellido',
+'$correo',
+'$password',
+'usuario',
+0
+)
+");
+
+$mensaje="Cuenta creada";
+
+}
+
+}
+
+/* =========================================
+LOGOUT
+========================================= */
+
+if(isset($_GET['logout'])){
+
+session_destroy();
+
+header("Location:index.php");
+
+}
+
+/* =========================================
+SUBIR EVENTOS
+========================================= */
+
+if(isset($_POST['agregar_evento'])){
+
+$titulo=$_POST['titulo'];
+$descripcion=$_POST['descripcion'];
+$categoria=$_POST['categoria'];
+
+$imagen=$_FILES['imagen']['name'];
+$tmp=$_FILES['imagen']['tmp_name'];
+
+$ruta="uploads/eventos/".$imagen;
+
+move_uploaded_file($tmp,$ruta);
+
+mysqli_query($conexion,"
+INSERT INTO eventos(
+titulo,
+descripcion,
+categoria,
+imagen,
+estado
+)
+VALUES(
+'$titulo',
+'$descripcion',
+'$categoria',
+'$ruta',
+'activo'
+)
+");
+
+}
+
+/* =========================================
+SUBIR CURSOS
+========================================= */
+
+if(isset($_POST['agregar_curso'])){
+
+$titulo=$_POST['titulo'];
+$descripcion=$_POST['descripcion'];
+$costo=$_POST['costo'];
+
+$imagen=$_FILES['imagen']['name'];
+$tmp=$_FILES['imagen']['tmp_name'];
+
+$ruta="uploads/cursos/".$imagen;
+
+move_uploaded_file($tmp,$ruta);
+
+mysqli_query($conexion,"
+INSERT INTO cursos(
+titulo,
+descripcion,
+costo,
+imagen,
+estado
+)
+VALUES(
+'$titulo',
+'$descripcion',
+'$costo',
+'$ruta',
+'activo'
+)
+");
+
+}
+
+/* =========================================
+BUSCADOR
+========================================= */
+
+if(isset($_POST['buscar'])){
+
+$buscar=$_POST['buscar'];
+
+$eventos=mysqli_query($conexion,"
+SELECT * FROM eventos
+WHERE titulo LIKE '%$buscar%'
+");
+
+}else{
+
+$eventos=mysqli_query($conexion,"
+SELECT * FROM eventos
+ORDER BY id_evento DESC
+");
+
+}
+
+/* =========================================
+CONSULTAS
+========================================= */
+
+$cursos=mysqli_query($conexion,"
+SELECT * FROM cursos
+ORDER BY id_curso DESC
+");
+
+$ranking=mysqli_query($conexion,"
+SELECT * FROM usuarios
+ORDER BY puntos DESC
+LIMIT 5
+");
+
+$total_usuarios=mysqli_num_rows(mysqli_query($conexion,"
+SELECT * FROM usuarios
+"));
+
+$total_eventos=mysqli_num_rows(mysqli_query($conexion,"
+SELECT * FROM eventos
+"));
+
+$total_cursos=mysqli_num_rows(mysqli_query($conexion,"
+SELECT * FROM cursos
+"));
+
+?>
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport"
+content="width=device-width, initial-scale=1.0">
+
+<title>
+Deportes Xonacatlán
+</title>
+
+<link rel="stylesheet"
+href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap"
+rel="stylesheet">
+
+<style>
+
+*{
+margin:0;
+padding:0;
+box-sizing:border-box;
+font-family:'Poppins',sans-serif;
+scroll-behavior:smooth;
+}
+
+body{
+background:#eef3f8;
+overflow-x:hidden;
+}
+
+/* =========================================
+COLORES
+========================================= */
+
+:root{
+
+--verde:#006847;
+--verde2:#00a86b;
+--gris:#f1f5f9;
+--oscuro:#0f172a;
+--blanco:#fff;
+
+}
+
+/* =========================================
+MENU MOBILE
+========================================= */
+
+.menu-btn{
+
+display:none;
+
+position:fixed;
+
+top:20px;
+left:20px;
+
+width:55px;
+height:55px;
+
+border:none;
+
+border-radius:15px;
+
+background:var(--verde);
+
+color:white;
+
+font-size:22px;
+
+z-index:99999;
+
+cursor:pointer;
+
+box-shadow:
+0 10px 25px
+rgba(0,0,0,.2);
+
+}
+
+/* =========================================
+SIDEBAR
+========================================= */
+
+.sidebar{
+
+position:fixed;
+
+left:0;
+top:0;
+
+width:290px;
+height:100vh;
+
+background:
+linear-gradient(
+180deg,
+#006847,
+#003b28
+);
+
+padding:30px 20px;
+
+overflow:auto;
+
+z-index:999;
+
+transition:.4s;
+
+}
+
+.logo{
+
+text-align:center;
+
+margin-bottom:40px;
+
+}
+
+.logo img{
+
+width:130px;
+height:130px;
+
+background:white;
+
+padding:12px;
+
+border-radius:50%;
+
+object-fit:contain;
+
+margin-bottom:20px;
+
+box-shadow:
+0 10px 25px
+rgba(0,0,0,.2);
+
+}
+
+.logo h1{
+
+color:white;
+
+font-size:38px;
+
+font-weight:800;
+
+}
+
+.logo p{
+
+color:#d1fae5;
+
+margin-top:5px;
+
+}
+
+.sidebar nav{
+
+display:flex;
+
+flex-direction:column;
+
+gap:15px;
+
+}
+
+.sidebar nav a{
+
+text-decoration:none;
+
+padding:18px;
+
+border-radius:18px;
+
+background:
+rgba(255,255,255,.08);
+
+color:white;
+
+font-weight:600;
+
+transition:.3s;
+
+display:flex;
+
+align-items:center;
+
+gap:12px;
+
+}
+
+.sidebar nav a:hover{
+
+background:white;
+
+color:var(--verde);
+
+transform:translateX(6px);
+
+}
+
+/* =========================================
+MAIN
+========================================= */
+
+.main{
+
+margin-left:290px;
+
+padding:35px;
+
+}
+
+/* =========================================
+TOPBAR
+========================================= */
+
+.topbar{
+
+display:flex;
+
+justify-content:space-between;
+
+align-items:center;
+
+gap:20px;
+
+flex-wrap:wrap;
+
+margin-bottom:40px;
+
+}
+
+.top-left h2{
+
+font-size:42px;
+
+font-weight:800;
+
+color:var(--verde);
+
+}
+
+.top-left p{
+
+margin-top:8px;
+
+color:#64748b;
+
+}
+
+/* SEARCH */
+
+.search-box form{
+
+display:flex;
+
+align-items:center;
+
+background:white;
+
+padding:8px;
+
+border-radius:50px;
+
+box-shadow:
+0 10px 25px
+rgba(0,0,0,.08);
+
+}
+
+.search-box input{
+
+border:none;
+
+outline:none;
+
+padding:12px 18px;
+
+width:250px;
+
+border-radius:50px;
+
+}
+
+.search-box button{
+
+width:45px;
+height:45px;
+
+border:none;
+
+border-radius:50%;
+
+background:var(--verde);
+
+color:white;
+
+cursor:pointer;
+
+}
+
+/* ACCESS */
+
+.access-btn{
+
+padding:15px 30px;
+
+border:none;
+
+border-radius:50px;
+
+background:
+linear-gradient(
+45deg,
+var(--verde),
+var(--verde2)
+);
+
+color:white;
+
+font-weight:700;
+
+cursor:pointer;
+
+transition:.3s;
+
+box-shadow:
+0 10px 25px
+rgba(0,104,71,.25);
+
+}
+
+.access-btn:hover{
+
+transform:
+translateY(-5px);
+
+}
+
+/* =========================================
+HERO
+========================================= */
+
+.hero{
+
+position:relative;
+
+overflow:hidden;
+
+display:flex;
+
+justify-content:space-between;
+
+align-items:center;
+
+gap:40px;
+
+padding:80px;
+
+background:white;
+
+border-radius:40px;
+
+margin-bottom:70px;
+
+box-shadow:
+0 20px 50px
+rgba(0,0,0,.06);
+
+flex-wrap:wrap;
+
+}
+
+.hero::before{
+
+content:'';
+
+position:absolute;
+
+width:600px;
+height:600px;
+
+background:
+rgba(0,104,71,.08);
+
+border-radius:50%;
+
+right:-250px;
+top:-250px;
+
+}
+
+.hero-text{
+
+flex:1;
+
+position:relative;
+
+z-index:2;
+
+}
+
+.hero-text h1{
+
+font-size:95px;
+
+line-height:1;
+
+color:var(--verde);
+
+margin-bottom:25px;
+
+font-weight:800;
+
+}
+
+.hero-text p{
+
+font-size:19px;
+
+line-height:1.9;
+
+max-width:650px;
+
+color:#475569;
+
+margin-bottom:35px;
+
+}
+
+.hero-buttons{
+
+display:flex;
+
+gap:20px;
+
+flex-wrap:wrap;
+
+}
+
+.hero-buttons button{
+
+padding:18px 35px;
+
+border:none;
+
+border-radius:50px;
+
+font-weight:700;
+
+cursor:pointer;
+
+transition:.3s;
+
+}
+
+.btn-primary{
+
+background:
+linear-gradient(
+45deg,
+var(--verde),
+var(--verde2)
+);
+
+color:white;
+
+}
+
+.btn-secondary{
+
+background:white;
+
+border:2px solid var(--verde);
+
+color:var(--verde);
+
+}
+
+.hero-buttons button:hover{
+
+transform:
+translateY(-5px);
+
+}
+
+.hero img{
+
+width:500px;
+
+max-width:100%;
+
+border-radius:35px;
+
+position:relative;
+
+z-index:2;
+
+animation:float 5s infinite ease-in-out;
+
+}
+
+/* =========================================
+STATS
+========================================= */
+
+.stats{
+
+display:grid;
+
+grid-template-columns:
+repeat(auto-fit,minmax(230px,1fr));
+
+gap:20px;
+
+margin-bottom:70px;
+
+}
+
+.stat{
+
+background:white;
+
+padding:35px;
+
+border-radius:25px;
+
+box-shadow:
+0 10px 25px
+rgba(0,0,0,.05);
+
+transition:.4s;
+
+border-top:5px solid var(--verde);
+
+}
+
+.stat:hover{
+
+transform:
+translateY(-10px);
+
+}
+
+.stat h1{
+
+font-size:60px;
+
+color:var(--verde);
+
+margin-bottom:10px;
+
+}
+
+/* =========================================
+TITULOS
+========================================= */
+
+.title{
+
+margin-bottom:30px;
+
+}
+
+.title h2{
+
+font-size:45px;
+
+color:var(--verde);
+
+}
+
+/* =========================================
+CARDS
+========================================= */
+
+.grid{
+
+display:grid;
+
+grid-template-columns:
+repeat(auto-fit,minmax(320px,1fr));
+
+gap:25px;
+
+margin-bottom:70px;
+
+}
+
+.card{
+
+background:white;
+
+border-radius:30px;
+
+overflow:hidden;
+
+box-shadow:
+0 10px 25px
+rgba(0,0,0,.05);
+
+transition:.4s;
+
+}
+
+.card:hover{
+
+transform:
+translateY(-12px);
+
+box-shadow:
+0 20px 50px
+rgba(0,104,71,.15);
+
+}
+
+.card img{
+
+width:100%;
+height:240px;
+
+object-fit:cover;
+
+}
+
+.card-info{
+
+padding:25px;
+
+}
+
+.card-info h3{
+
+font-size:28px;
+
+margin-bottom:15px;
+
+color:var(--verde);
+
+}
+
+.card-info p{
+
+line-height:1.8;
+
+color:#64748b;
+
+}
+
+.category{
+
+display:inline-block;
+
+padding:10px 18px;
+
+background:var(--verde2);
+
+color:white;
+
+border-radius:50px;
+
+font-size:14px;
+
+margin-bottom:15px;
+
+font-weight:700;
+
+}
+
+.card-buttons{
+
+display:flex;
+
+gap:15px;
+
+margin-top:20px;
+
+}
+
+.card-buttons button{
+
+padding:14px 20px;
+
+border:none;
+
+border-radius:15px;
+
+font-weight:700;
+
+cursor:pointer;
+
+}
+
+.ver-btn{
+
+background:
+linear-gradient(
+45deg,
+var(--verde),
+var(--verde2)
+);
+
+color:white;
+
+}
+
+.like-btn{
+
+width:55px;
+height:55px;
+
+background:#fff0f0;
+
+}
+
+/* =========================================
+GALERIA
+========================================= */
+
+.gallery{
+
+display:grid;
+
+grid-template-columns:
+repeat(auto-fit,minmax(250px,1fr));
+
+gap:20px;
+
+margin-bottom:70px;
+
+}
+
+.gallery img{
+
+width:100%;
+height:260px;
+
+object-fit:cover;
+
+border-radius:25px;
+
+transition:.4s;
+
+}
+
+.gallery img:hover{
+
+transform:
+scale(1.03);
+
+}
+
+/* =========================================
+ADMIN
+========================================= */
+
+.admin{
+
+display:grid;
+
+grid-template-columns:
+repeat(auto-fit,minmax(320px,1fr));
+
+gap:25px;
+
+margin-bottom:70px;
+
+}
+
+.admin-card{
+
+background:white;
+
+padding:25px;
+
+border-radius:30px;
+
+box-shadow:
+0 10px 25px
+rgba(0,0,0,.05);
+
+}
+
+.admin-card h3{
+
+margin-bottom:20px;
+
+color:var(--verde);
+
+font-size:28px;
+
+}
+
+.admin form{
+
+display:grid;
+
+gap:18px;
+
+}
+
+.admin input,
+.admin textarea{
+
+padding:16px;
+
+border:none;
+
+background:var(--gris);
+
+border-radius:15px;
+
+outline:none;
+
+}
+
+.admin input[type=file]{
+
+background:white;
+
+}
+
+.admin button{
+
+padding:17px;
+
+border:none;
+
+border-radius:15px;
+
+background:
+linear-gradient(
+45deg,
+var(--verde),
+var(--verde2)
+);
+
+color:white;
+
+font-weight:700;
+
+cursor:pointer;
+
+}
+
+/* =========================================
+MODAL
+========================================= */
+
+.modal{
+
+position:fixed;
+
+top:0;
+left:0;
+
+width:100%;
+height:100vh;
+
+background:
+rgba(0,0,0,.6);
+
+display:none;
+
+justify-content:center;
+
+align-items:center;
+
+z-index:99999;
+
+backdrop-filter:blur(8px);
+
+padding:20px;
+
+}
+
+.modal-content{
+
+width:950px;
+
+max-width:100%;
+
+background:white;
+
+border-radius:35px;
+
+overflow:hidden;
+
+display:grid;
+
+grid-template-columns:
+1fr 1fr;
+
+}
+
+.modal-left{
+
+background:
+linear-gradient(
+135deg,
+var(--verde),
+var(--verde2)
+);
+
+padding:50px;
+
+display:flex;
+
+flex-direction:column;
+
+justify-content:center;
+
+align-items:center;
+
+text-align:center;
+
+color:white;
+
+}
+
+.modal-left img{
+
+width:170px;
+
+background:white;
+
+padding:15px;
+
+border-radius:50%;
+
+margin-bottom:25px;
+
+}
+
+.modal-left h2{
+
+font-size:45px;
+
+margin-bottom:20px;
+
+}
+
+.modal-right{
+
+padding:50px;
+
+position:relative;
+
+}
+
+.close{
+
+position:absolute;
+
+top:20px;
+right:20px;
+
+font-size:30px;
+
+cursor:pointer;
+
+}
+
+.tabs{
+
+display:flex;
+
+background:var(--gris);
+
+border-radius:15px;
+
+overflow:hidden;
+
+margin-bottom:30px;
+
+}
+
+.tabs button{
+
+flex:1;
+
+padding:15px;
+
+border:none;
+
+background:none;
+
+font-weight:700;
+
+cursor:pointer;
+
+}
+
+.active{
+
+background:var(--verde) !important;
+
+color:white;
+
+}
+
+.form-box{
+
+display:flex;
+
+flex-direction:column;
+
+gap:18px;
+
+}
+
+.form-box input{
+
+padding:17px;
+
+border:none;
+
+background:var(--gris);
+
+border-radius:15px;
+
+outline:none;
+
+}
+
+.form-box button{
+
+padding:17px;
+
+border:none;
+
+border-radius:15px;
+
+background:
+linear-gradient(
+45deg,
+var(--verde),
+var(--verde2)
+);
+
+color:white;
+
+font-weight:700;
+
+cursor:pointer;
+
+}
+
+/* =========================================
+FOOTER
+========================================= */
+
+footer{
+
+background:
+linear-gradient(
+135deg,
+var(--verde),
+#003b28
+);
+
+padding:50px;
+
+border-radius:30px 30px 0 0;
+
+color:white;
+
+text-align:center;
+
+}
+
+/* =========================================
+RESPONSIVE
+========================================= */
+
+@media(max-width:1000px){
+
+.menu-btn{
+
+display:block;
+
+}
+
+.sidebar{
+
+left:-100%;
+
+}
+
+.sidebar.active{
+
+left:0;
+
+}
+
+.main{
+
+margin-left:0;
+
+padding:20px;
+
+padding-top:90px;
+
+}
+
+.hero{
+
+padding:40px;
+
+text-align:center;
+
+justify-content:center;
+
+}
+
+.hero-text h1{
+
+font-size:55px;
+
+}
+
+.modal-content{
+
+grid-template-columns:1fr;
+
+}
+
+}
+
+@media(max-width:700px){
+
+.hero-text h1{
+
+font-size:42px;
+
+}
+
+.topbar{
+
+flex-direction:column;
+
+align-items:flex-start;
+
+}
+
+.search-box input{
+
+width:160px;
+
+}
+
+.title h2{
+
+font-size:34px;
+
+}
+
+}
+
+/* =========================================
+ANIMACION
+========================================= */
+
+@keyframes float{
+
+0%,100%{
+
+transform:translateY(0);
+
+}
+
+50%{
+
+transform:translateY(-15px);
+
+}
+
+}
+
+</style>
+</head>
+
+<body>
+
+<!-- MENU BTN -->
+
+<button
+class="menu-btn"
+onclick="toggleMenu()">
+
+☰
+
+</button>
+
+<!-- SIDEBAR -->
+
+<div class="sidebar" id="sidebar">
+
+<div class="logo">
+
+<img src="uploads/logo/logo.png">
+
+<h1>
+DEPORTES
+</h1>
+
+<p>
+Xonacatlán
+</p>
+
+</div>
+
+<nav>
+
+<a href="#">
+<i class="fa-solid fa-house"></i>
+Inicio
+</a>
+
+<a href="#eventos">
+<i class="fa-solid fa-futbol"></i>
+Eventos
+</a>
+
+<a href="#cursos">
+<i class="fa-solid fa-medal"></i>
+Cursos
+</a>
+
+<a href="#galeria">
+<i class="fa-solid fa-image"></i>
+Galería
+</a>
+
+<a href="#ranking">
+<i class="fa-solid fa-trophy"></i>
+Ranking
+</a>
+
+<?php if(isset($_SESSION['rol']) && $_SESSION['rol']=="admin"){ ?>
+
+<a href="#admin">
+<i class="fa-solid fa-gear"></i>
+Admin
+</a>
+
+<?php } ?>
+
+<?php if(isset($_SESSION['usuario'])){ ?>
+
+<a href="?logout=1">
+<i class="fa-solid fa-right-from-bracket"></i>
+Salir
+</a>
+
+<?php }else{ ?>
+
+<a href="javascript:void(0)"
+onclick="abrirModal()">
+
+<i class="fa-solid fa-user"></i>
+Acceso
+
+</a>
+
+<?php } ?>
+
+</nav>
+
+</div>
+
+<!-- MAIN -->
+
+<div class="main">
+
+<!-- TOPBAR -->
+
+<div class="topbar">
+
+<div class="top-left">
+
+<h2>
+🏆 Deportes Xonacatlán
+</h2>
+
+<p>
+Portal deportivo oficial del municipio
+</p>
+
+</div>
+
+<div class="search-box">
+
+<form method="POST">
+
+<input
+type="text"
+name="buscar"
+placeholder="Buscar eventos...">
+
+<button>
+🔍
+</button>
+
+</form>
+
+</div>
+
+</div>
+
+<!-- HERO -->
+
+<section class="hero">
+
+<div class="hero-text">
+
+<h1>
+
+DEPORTE
+Y PASIÓN
+
+</h1>
+
+<p>
+
+Explora torneos,
+eventos y cursos deportivos
+del municipio de Xonacatlán.
+
+</p>
+
+<div class="hero-buttons">
+
+<button class="btn-primary">
+Explorar
+</button>
+
+<button class="btn-secondary">
+Eventos
+</button>
+
+</div>
+
+</div>
+
+<img src="uploads/logo/logo.png">
+
+</section>
+<!-- STATS -->
+
+<section class="stats">
+
+<div class="stat">
+
+<h1>
+<?php echo $total_usuarios; ?>
+</h1>
+
+<p>
+Usuarios registrados
+</p>
+
+</div>
+
+<div class="stat">
+
+<h1>
+<?php echo $total_eventos; ?>
+</h1>
+
+<p>
+Eventos deportivos
+</p>
+
+</div>
+
+<div class="stat">
+
+<h1>
+<?php echo $total_cursos; ?>
+</h1>
+
+<p>
+Cursos activos
+</p>
+
+</div>
+
+</section>
+
+<!-- EVENTOS -->
+
+<div class="title" id="eventos">
+
+<h2>
+⚽ Eventos Deportivos
+</h2>
+
+</div>
+
+<section class="grid">
+
+<?php while($e=mysqli_fetch_array($eventos)){ ?>
+
+<div class="card">
+
+<img src="<?php echo $e['imagen']; ?>">
+
+<div class="card-info">
+
+<span class="category">
+
+<?php echo $e['categoria']; ?>
+
+</span>
+
+<h3>
+
+<?php echo $e['titulo']; ?>
+
+</h3>
+
+<p>
+
+<?php echo $e['descripcion']; ?>
+
+</p>
+
+<div class="card-buttons">
+
+<button class="ver-btn">
+
+Ver Evento
+
+</button>
+
+<button class="like-btn">
+
+❤️
+
+</button>
+
+</div>
+
+</div>
+
+</div>
+
+<?php } ?>
+
+</section>
+
+<!-- CURSOS -->
+
+<div class="title" id="cursos">
+
+<h2>
+🎯 Cursos Deportivos
+</h2>
+
+</div>
+
+<section class="grid">
+
+<?php while($c=mysqli_fetch_array($cursos)){ ?>
+
+<div class="card">
+
+<img src="<?php echo $c['imagen']; ?>">
+
+<div class="card-info">
+
+<span class="category">
+
+Curso Oficial
+
+</span>
+
+<h3>
+
+<?php echo $c['titulo']; ?>
+
+</h3>
+
+<p>
+
+<?php echo $c['descripcion']; ?>
+
+</p>
+
+<h2 style="margin-top:15px;color:#006847;">
+
+💲 <?php echo $c['costo']; ?>
+
+</h2>
+
+<div class="card-buttons">
+
+<button class="ver-btn">
+
+Inscribirse
+
+</button>
+
+</div>
+
+</div>
+
+</div>
+
+<?php } ?>
+
+</section>
+
+<!-- GALERIA -->
+
+<div class="title" id="galeria">
+
+<h2>
+📸 Galería
+</h2>
+
+</div>
+
+<section class="gallery">
+
+<img src="https://images.unsplash.com/photo-1517649763962-0c623066013b?q=80&w=1200">
+
+<img src="https://images.unsplash.com/photo-1546519638-68e109498ffc?q=80&w=1200">
+
+<img src="https://images.unsplash.com/photo-1517836357463-d25dfeac3438?q=80&w=1200">
+
+<img src="https://images.unsplash.com/photo-1521412644187-c49fa049e84d?q=80&w=1200">
+
+<img src="https://images.unsplash.com/photo-1518611012118-696072aa579a?q=80&w=1200">
+
+<img src="https://images.unsplash.com/photo-1508609349937-5ec4ae374ebf?q=80&w=1200">
+
+</section>
+
+<!-- RANKING -->
+
+<div class="title" id="ranking">
+
+<h2>
+🏆 Ranking Deportivo
+</h2>
+
+</div>
+
+<section class="ranking">
+
+<?php while($r=mysqli_fetch_array($ranking)){ ?>
+
+<div class="rank">
+
+<div>
+
+<h3>
+
+<?php echo $r['nombre']; ?>
+
+</h3>
+
+<p>
+Jugador destacado
+</p>
+
+</div>
+
+<h2 style="color:#006847;">
+
+<?php echo $r['puntos']; ?> pts
+
+</h2>
+
+</div>
+
+<?php } ?>
+
+</section>
+
+<!-- ADMIN -->
+
+<?php if(isset($_SESSION['rol']) && $_SESSION['rol']=="admin"){ ?>
+
+<div class="title" id="admin">
+
+<h2>
+⚙ Panel Administrativo
+</h2>
+
+</div>
+
+<section class="admin">
+
+<!-- EVENTOS -->
+
+<div class="admin-card">
+
+<h3>
+➕ Agregar Evento
+</h3>
+
+<form
+method="POST"
+enctype="multipart/form-data">
+
+<input
+type="text"
+name="titulo"
+placeholder="Título del evento"
+required>
+
+<textarea
+name="descripcion"
+placeholder="Descripción"
+required></textarea>
+
+<input
+type="text"
+name="categoria"
+placeholder="Categoría"
+required>
+
+<input
+type="file"
+name="imagen"
+required>
+
+<button
+name="agregar_evento">
+
+Guardar Evento
+
+</button>
+
+</form>
+
+</div>
+
+<!-- CURSOS -->
+
+<div class="admin-card">
+
+<h3>
+🎯 Agregar Curso
+</h3>
+
+<form
+method="POST"
+enctype="multipart/form-data">
+
+<input
+type="text"
+name="titulo"
+placeholder="Título del curso"
+required>
+
+<textarea
+name="descripcion"
+placeholder="Descripción"
+required></textarea>
+
+<input
+type="number"
+name="costo"
+placeholder="Costo"
+required>
+
+<input
+type="file"
+name="imagen"
+required>
+
+<button
+name="agregar_curso">
+
+Guardar Curso
+
+</button>
+
+</form>
+
+</div>
+
+<!-- DASHBOARD -->
+
+<div class="admin-card">
+
+<h3>
+📊 Estadísticas
+</h3>
+
+<div style="
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:15px;
+">
+
+<div class="stat">
+
+<h1>
+<?php echo $total_usuarios; ?>
+</h1>
+
+<p>
+Usuarios
+</p>
+
+</div>
+
+<div class="stat">
+
+<h1>
+<?php echo $total_eventos; ?>
+</h1>
+
+<p>
+Eventos
+</p>
+
+</div>
+
+</div>
+
+</div>
+
+</section>
+
+<?php } ?>
+
+<!-- FOOTER -->
+
+<footer>
+
+<h2>
+🏆 Deportes Xonacatlán
+</h2>
+
+<p style="margin-top:15px;">
+
+Portal deportivo oficial del municipio
+
+</p>
+
+<p style="margin-top:20px;opacity:.7;">
+
+© 2026 Deportes Xonacatlán
+
+</p>
+
+</footer>
+
+</div>
+
+<!-- MODAL LOGIN -->
+
+<div class="modal" id="modal">
+
+<div class="modal-content">
+
+<!-- LEFT -->
+
+<div class="modal-left">
+
+<img src="uploads/logo/logo.png">
+
+<h2>
+
+Deportes
+Xonacatlán
+
+</h2>
+
+<p>
+
+Accede a eventos,
+cursos y torneos deportivos.
+
+</p>
+
+</div>
+
+<!-- RIGHT -->
+
+<div class="modal-right">
+
+<div
+class="close"
+onclick="cerrarModal()">
+
+✕
+
+</div>
+
+<div class="tabs">
+
+<button
+onclick="mostrarLogin()"
+class="active"
+id="btnLogin">
+
+Iniciar Sesión
+
+</button>
+
+<button
+onclick="mostrarRegistro()"
+id="btnRegistro">
+
+Registrarse
+
+</button>
+
+</div>
+
+<!-- LOGIN -->
+
+<form
+method="POST"
+id="loginForm"
+class="form-box">
+
+<input
+type="email"
+name="correo"
+placeholder="Correo"
+required>
+
+<input
+type="password"
+name="password"
+placeholder="Contraseña"
+required>
+
+<button
+name="login">
+
+Entrar
+
+</button>
+
+</form>
+
+<!-- REGISTRO -->
+
+<form
+method="POST"
+id="registroForm"
+class="form-box"
+style="display:none;">
+
+<input
+type="text"
+name="nombre"
+placeholder="Nombre"
+required>
+
+<input
+type="text"
+name="apellido"
+placeholder="Apellido"
+required>
+
+<input
+type="email"
+name="correo"
+placeholder="Correo"
+required>
+
+<input
+type="password"
+name="password"
+placeholder="Contraseña"
+required>
+
+<button
+name="registro">
+
+Crear Cuenta
+
+</button>
+
+</form>
+
+</div>
+
+</div>
+
+</div>
+
+<!-- JAVASCRIPT -->
+
+<script>
+
+function abrirModal(){
+
+document.getElementById("modal")
+.style.display="flex";
+
+}
+
+function cerrarModal(){
+
+document.getElementById("modal")
+.style.display="none";
+
+}
+
+function mostrarRegistro(){
+
+document.getElementById("registroForm")
+.style.display="flex";
+
+document.getElementById("loginForm")
+.style.display="none";
+
+document.getElementById("btnRegistro")
+.classList.add("active");
+
+document.getElementById("btnLogin")
+.classList.remove("active");
+
+}
+
+function mostrarLogin(){
+
+document.getElementById("loginForm")
+.style.display="flex";
+
+document.getElementById("registroForm")
+.style.display="none";
+
+document.getElementById("btnLogin")
+.classList.add("active");
+
+document.getElementById("btnRegistro")
+.classList.remove("active");
+
+}
+
+function toggleMenu(){
+
+document.getElementById("sidebar")
+.classList.toggle("active");
+
+}
+
+</script>
+
+</body>
+</html>
